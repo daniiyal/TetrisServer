@@ -42,6 +42,7 @@ namespace TetrisServer2.Game
             }
 
             Console.WriteLine("Игра закончена");
+            
         }
 
 

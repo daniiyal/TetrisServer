@@ -73,6 +73,11 @@ namespace TetrisServer2.Server
                     SendResponse(gameManager.CurrentBlock.BlockId.ToString());
                     break;
                 case "GetGrid":
+                    if (gameManager.GameOver)
+                    {
+                        SendResponse("GameOver");
+                        break;
+                    }
                     var row = Convert.ToInt32(response.Split(' ')[1]);
                     var column = Convert.ToInt32(response.Split(' ')[2]);
                     SendResponse(gameManager.Field[row, column].ToString());
@@ -93,7 +98,7 @@ namespace TetrisServer2.Server
         }
 
         public async void SendResponse(string message)
-        { 
+        {
             await clientSocket.SendAsync(Encoding.UTF8.GetBytes(message + '\n'), SocketFlags.None);
         }
     }
