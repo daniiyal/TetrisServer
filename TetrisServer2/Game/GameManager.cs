@@ -87,7 +87,7 @@ namespace TetrisServer2.Game
         {
             foreach (var position in CurrentBlock.BlockTilesPositions())
             {
-                Field[position.Row, position.Column] = CurrentBlock.BlockId;
+                Field[position.Row, position.Column] = position.BlockPosId;
             }
 
             Field.ClearFullRows();
@@ -110,5 +110,46 @@ namespace TetrisServer2.Game
                 PlaceBlock();
             }
         }
+
+        public void RotateBlock()
+        {
+            CurrentBlock.RotateCW();
+
+            if (!IsBlockFit())
+            {
+                CurrentBlock.RotateCCW();
+            }
+        }
+
+        private int TileDropDistance(Position pos)
+        {
+            int dropLines = 0;
+
+            while (Field.IsEmpty(pos.Row + dropLines + 1, pos.Column))
+            {
+                dropLines++;
+            }
+
+            return dropLines;
+        }
+
+        public int BlockDropDistance()
+        {
+            int drop = Field.Rows;
+
+            foreach (Position pos in CurrentBlock.BlockTilesPositions())
+            {
+                drop = Math.Min(drop, TileDropDistance(pos));
+            }
+
+            return drop;
+        }
+
+        public void DropBlock()
+        {
+            CurrentBlock.Move(BlockDropDistance(), 0);
+            PlaceBlock();
+        }
+
     }
 }

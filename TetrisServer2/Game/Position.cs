@@ -10,11 +10,19 @@ namespace TetrisServer2.Game
     {
         public int Row { get; set; }
         public int Column { get; set; }
+        public int BlockPosId { get; set; }
 
         public Position(int row, int column)
         {
             Row = row;
             Column = column;
+
+        }
+        public Position(int row, int column, int blockPosId)
+        {
+            Row = row;
+            Column = column;
+            BlockPosId = blockPosId;
         }
     }
 }

@@ -73,24 +73,45 @@ namespace TetrisServer2.Server
                     SendResponse(gameManager.CurrentBlock.BlockId.ToString());
                     break;
                 case "GetGrid":
+                    StringBuilder stringBuilder = new StringBuilder();
                     if (gameManager.GameOver)
                     {
                         SendResponse("GameOver");
                         break;
                     }
-                    var row = Convert.ToInt32(response.Split(' ')[1]);
-                    var column = Convert.ToInt32(response.Split(' ')[2]);
-                    SendResponse(gameManager.Field[row, column].ToString());
+
+                    for (int i = 0; i < gameManager.Field.Rows; i++)
+                    {
+                        for (int j = 0; j < gameManager.Field.Columns; j++)
+                        {
+                            stringBuilder.Append(gameManager.Field[i, j]);
+                            stringBuilder.Append('-');
+                        }
+                        stringBuilder.Append('n');
+                    }
+
+                    SendResponse(stringBuilder.ToString());
                     break;
                 case "GetBlock":
                     string positions = "";
                     foreach (var position in gameManager.CurrentBlock.BlockTilesPositions())
                     {
-                        positions += position.Row + "-" + position.Column + "n";
+                        positions += position.Row + "-" + position.Column + "-" + position.BlockPosId + "n";
                     }
-
-                    positions += gameManager.CurrentBlock.BlockId;
+                    //positions += gameManager.CurrentBlock.BlockId;
                     SendResponse(positions);
+                    break;
+                case "Left":
+                    gameManager.MoveBlockLeft();
+                    break;
+                case "Right":
+                    gameManager.MoveBlockRight();
+                    break;
+                case "Rotate":
+                    gameManager.RotateBlock();
+                    break;
+                case "Drop":
+                    gameManager.DropBlock();
                     break;
             }
 

@@ -30,9 +30,24 @@
         {
             foreach (var position in BlockTiles[rotationState])
             {
-                yield return new Position(position.Row + offset.Row, position.Column + offset.Column);
+                yield return new Position(position.Row + offset.Row, position.Column + offset.Column, position.BlockPosId);
             }
         }
 
+        public void RotateCW()
+        {
+            rotationState = (rotationState + 1) % BlockTiles.Length;
+        }
+        public void RotateCCW()
+        {
+            if (rotationState == 0)
+            {
+                rotationState = BlockTiles.Length - 1;
+            }
+            else
+            {
+                rotationState--;
+            }
+        }
     }
 }

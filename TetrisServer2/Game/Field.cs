@@ -75,8 +75,7 @@
                     ClearRow(row);
                     cleared++;
                 }
-
-                if (cleared > 0)
+                else if (cleared > 0)
                     DropRow(row, cleared);
             }
 
