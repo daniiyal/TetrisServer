@@ -48,6 +48,7 @@ namespace TetrisServer2.Game
 
         private async Task StartGame()
         {
+            Score = 0;
             await GameLoop();
         }
 
@@ -90,7 +91,7 @@ namespace TetrisServer2.Game
                 Field[position.Row, position.Column] = position.BlockPosId;
             }
 
-            Field.ClearFullRows();
+            Score += Field.ClearFullRows();
 
             if (IsGameOver())
                 GameOver = true;

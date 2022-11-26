@@ -9,17 +9,28 @@ namespace TetrisServer2.Server
     {
         private IPEndPoint ipEndPoint { get; }
 
+        private IPEndPoint broadCastEndPoint { get; }
+
         private Socket listener { get; }
+
+        private UdpClient udpClient { get; }
+
+        private UdpClient UdpClient {get; set; }
+
         private int port { get; }
         private bool active = false;
 
         private Socket clientSocket;
         private GameManager gameManager;
+
         public Server(string ip, int port)
         {
             this.port = port;
             this.ipEndPoint = new IPEndPoint(IPAddress.Parse(ip), port);
             this.listener = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+
+            this.udpClient = new UdpClient();
+            this.broadCastEndPoint = new IPEndPoint(IPAddress.Parse(ip), 333);
         }
 
         public void startServer()
@@ -28,8 +39,13 @@ namespace TetrisServer2.Server
             {
                 listener.Bind(ipEndPoint);
                 listener.Listen(port);
+
+                udpClient.Client.Bind(ipEndPoint);
+
                 active = true;
                 Console.WriteLine("Сервер запущен. Ожидание подключений...");
+
+                Task.Run(ReceiveRequest);
             }
             else
             {
@@ -90,6 +106,7 @@ namespace TetrisServer2.Server
                         stringBuilder.Append('n');
                     }
 
+                    stringBuilder.Append(gameManager.Score);
                     SendResponse(stringBuilder.ToString());
                     break;
                 case "GetBlock":
@@ -122,5 +139,27 @@ namespace TetrisServer2.Server
         {
             await clientSocket.SendAsync(Encoding.UTF8.GetBytes(message + '\n'), SocketFlags.None);
         }
+
+
+        private async Task ReceiveRequest()
+        {
+
+            var clientEp = new IPEndPoint(IPAddress.Any, 0);
+            var responseData = Encoding.ASCII.GetBytes("Come and play");
+
+            while (true)
+            {
+                var receiveBUffer = udpClient.Receive(ref clientEp);
+
+                if (Encoding.UTF8.GetString(receiveBUffer) == "Want to play")
+                {
+                    Console.WriteLine($"received request from {clientEp.Address}");
+                    udpClient.Send(responseData, responseData.Length, clientEp.Address.ToString(), clientEp.Port);
+                };
+            }
+        }
+
+
+
     }
 }
