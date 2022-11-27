@@ -21,12 +21,16 @@ namespace TetrisServer2.Game
 
 
         public Field Field { get; set; }
+
+
+
         public BlockPicker BlockPicker { get; set; }
         public bool GameOver { get; set; }
 
         public GameManager(int rows, int cols)
         {
             Field = new Field(rows, cols);
+
             BlockPicker = new BlockPicker();
             CurrentBlock = BlockPicker.GetRandomBlock();
             StartGame();
@@ -42,7 +46,6 @@ namespace TetrisServer2.Game
             }
 
             Console.WriteLine("Игра закончена");
-            
         }
 
 

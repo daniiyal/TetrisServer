@@ -17,6 +17,8 @@ namespace TetrisServer2.Server
 
         private UdpClient UdpClient {get; set; }
 
+        Dictionary<FieldSize, Field> FieldSizes { get; set; }
+
         private int port { get; }
         private bool active = false;
 
@@ -26,11 +28,18 @@ namespace TetrisServer2.Server
         public Server(string ip, int port)
         {
             this.port = port;
-            this.ipEndPoint = new IPEndPoint(IPAddress.Parse(ip), port);
-            this.listener = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+            ipEndPoint = new IPEndPoint(IPAddress.Parse(ip), port);
+            listener = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
 
-            this.udpClient = new UdpClient();
-            this.broadCastEndPoint = new IPEndPoint(IPAddress.Parse(ip), 333);
+            udpClient = new UdpClient();
+            broadCastEndPoint = new IPEndPoint(IPAddress.Parse(ip), 333);
+
+            FieldSizes = new Dictionary<FieldSize, Field>()
+            {
+                {FieldSize.SMALL, new Field(20, 10)},
+                {FieldSize.MEDIUM, new Field(20, 15)},
+                {FieldSize.LARGE, new Field(20, 20)}
+            };
         }
 
         public void startServer()
@@ -80,10 +89,21 @@ namespace TetrisServer2.Server
             switch (response.Split(' ')[0])
             {
                 case "StartGame":
+                    var fieldSize = response.Split(' ')[1];
+                    switch (fieldSize)
+                    {
+                        case "s":
+                            gameManager = new GameManager(FieldSizes[FieldSize.SMALL].Rows, FieldSizes[FieldSize.SMALL].Columns);
+                            break;
+                        case "m":
+                            gameManager = new GameManager(FieldSizes[FieldSize.MEDIUM].Rows, FieldSizes[FieldSize.MEDIUM].Columns);
+                            break;
+                        case "l":
+                            gameManager = new GameManager(FieldSizes[FieldSize.LARGE].Rows, FieldSizes[FieldSize.LARGE].Columns);
+                            break;
+                    }
+                    SendResponse($"GameStarted-{gameManager.Field.Rows}-{gameManager.Field.Columns}");
                     Console.WriteLine("Игра началась");
-                    var rows = Convert.ToInt32(response.Split(' ')[1]);
-                    var columns = Convert.ToInt32(response.Split(' ')[2]);
-                    gameManager = new GameManager(rows, columns);
                     break;
                 case "NextFigure":
                     SendResponse(gameManager.CurrentBlock.BlockId.ToString());
