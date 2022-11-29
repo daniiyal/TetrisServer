@@ -4,14 +4,29 @@ using TetrisServer2.Server;
 
 Server server = new Server("127.0.0.1", 333);
 
-server.startServer();
+
+try
+{
+    server.startServer();
+    await server.ConnectNewClient();
+}
+   
+catch (Exception ex)
+{
+    Console.WriteLine(ex.Message);
+}
+finally
+{
+    server.Stop();
+}
+
 
 //server.();
 
 //server.connectNewClient();
-server.connectNewClient();
 
-while (true)
-{
-    server.HandleResponse();
-}
+
+//while (true)
+//{
+//    server.HandleResponse();
+//}

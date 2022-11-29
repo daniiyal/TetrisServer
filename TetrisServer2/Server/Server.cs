@@ -9,21 +9,18 @@ namespace TetrisServer2.Server
     {
         private IPEndPoint ipEndPoint { get; }
 
-        private IPEndPoint broadCastEndPoint { get; }
-
         private Socket listener { get; }
 
         private UdpClient udpClient { get; }
 
-        private UdpClient UdpClient {get; set; }
 
-        Dictionary<FieldSize, Field> FieldSizes { get; set; }
 
         private int port { get; }
         private bool active = false;
 
         private Socket clientSocket;
-        private GameManager gameManager;
+
+        public Dictionary<FieldSize, Field> FieldSizes { get; set; }
 
         public Server(string ip, int port)
         {
@@ -32,7 +29,6 @@ namespace TetrisServer2.Server
             listener = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
 
             udpClient = new UdpClient();
-            broadCastEndPoint = new IPEndPoint(IPAddress.Parse(ip), 333);
 
             FieldSizes = new Dictionary<FieldSize, Field>()
             {
@@ -40,6 +36,7 @@ namespace TetrisServer2.Server
                 {FieldSize.MEDIUM, new Field(20, 15)},
                 {FieldSize.LARGE, new Field(20, 20)}
             };
+
         }
 
         public void startServer()
@@ -63,103 +60,31 @@ namespace TetrisServer2.Server
 
         }
 
-        public void connectNewClient()
+        public async Task ConnectNewClient()
         {
-            clientSocket = listener.Accept();
-            Console.WriteLine($"Подключился игрок - {clientSocket.RemoteEndPoint}");
-        }
-
-
-        public void HandleResponse()
-        {
-            var buffer = new List<byte>();
-            var bytesRead = new byte[1];
-
             while (true)
             {
-                var nextByte = clientSocket.Receive(bytesRead);
+                clientSocket = await listener.AcceptAsync();
+                Client client = new Client(clientSocket, this);
+                Console.WriteLine($"Подключился игрок - {clientSocket.RemoteEndPoint}");
 
-                if (nextByte == 0 || bytesRead[0] == '\n') break;
-
-                buffer.Add(bytesRead[0]);
+                try
+                {
+                    Task.Run(client.HandleResponseAsync);
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine(ex.Message);
+                    clientSocket.Shutdown(SocketShutdown.Both);
+                    break;
+                }
             }
-
-            var response = Encoding.UTF8.GetString(buffer.ToArray());
-
-            switch (response.Split(' ')[0])
-            {
-                case "StartGame":
-                    var fieldSize = response.Split(' ')[1];
-                    switch (fieldSize)
-                    {
-                        case "s":
-                            gameManager = new GameManager(FieldSizes[FieldSize.SMALL].Rows, FieldSizes[FieldSize.SMALL].Columns);
-                            break;
-                        case "m":
-                            gameManager = new GameManager(FieldSizes[FieldSize.MEDIUM].Rows, FieldSizes[FieldSize.MEDIUM].Columns);
-                            break;
-                        case "l":
-                            gameManager = new GameManager(FieldSizes[FieldSize.LARGE].Rows, FieldSizes[FieldSize.LARGE].Columns);
-                            break;
-                    }
-                    SendResponse($"GameStarted-{gameManager.Field.Rows}-{gameManager.Field.Columns}");
-                    Console.WriteLine("Игра началась");
-                    break;
-                case "NextFigure":
-                    SendResponse(gameManager.CurrentBlock.BlockId.ToString());
-                    break;
-                case "GetGrid":
-                    StringBuilder stringBuilder = new StringBuilder();
-                    if (gameManager.GameOver)
-                    {
-                        SendResponse("GameOver");
-                        break;
-                    }
-
-                    for (int i = 0; i < gameManager.Field.Rows; i++)
-                    {
-                        for (int j = 0; j < gameManager.Field.Columns; j++)
-                        {
-                            stringBuilder.Append(gameManager.Field[i, j]);
-                            stringBuilder.Append('-');
-                        }
-                        stringBuilder.Append('n');
-                    }
-
-                    stringBuilder.Append(gameManager.Score);
-                    SendResponse(stringBuilder.ToString());
-                    break;
-                case "GetBlock":
-                    string positions = "";
-                    foreach (var position in gameManager.CurrentBlock.BlockTilesPositions())
-                    {
-                        positions += position.Row + "-" + position.Column + "-" + position.BlockPosId + "n";
-                    }
-                    //positions += gameManager.CurrentBlock.BlockId;
-                    SendResponse(positions);
-                    break;
-                case "Left":
-                    gameManager.MoveBlockLeft();
-                    break;
-                case "Right":
-                    gameManager.MoveBlockRight();
-                    break;
-                case "Rotate":
-                    gameManager.RotateBlock();
-                    break;
-                case "Drop":
-                    gameManager.DropBlock();
-                    break;
-            }
-
-
+            //clientSocket = listener.Accept();
+            //Console.WriteLine($"Подключился игрок - {clientSocket.RemoteEndPoint}");
         }
 
-        public async void SendResponse(string message)
-        {
-            await clientSocket.SendAsync(Encoding.UTF8.GetBytes(message + '\n'), SocketFlags.None);
-        }
 
+        
 
         private async Task ReceiveRequest()
         {
@@ -180,6 +105,9 @@ namespace TetrisServer2.Server
         }
 
 
-
+        public void Stop()
+        {
+            listener.Shutdown(SocketShutdown.Both);
+        }
     }
 }
