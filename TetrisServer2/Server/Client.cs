@@ -1,5 +1,7 @@
-﻿using System.Net.Sockets;
+﻿using MongoDB.Bson.Serialization;
+using System.Net.Sockets;
 using System.Text;
+using TetrisServer2.DataBase;
 using TetrisServer2.Game;
 
 namespace TetrisServer2.Server
@@ -14,12 +16,15 @@ namespace TetrisServer2.Server
 
         private Socket clientSocket;
         private Server server;
+        private DBOperator DbOperator;
+
 
         public Client(Socket clientSocket, Server server)
         {
 
             this.clientSocket = clientSocket;
             this.server = server;
+            DbOperator = new DBOperator();
         }
 
         public async Task HandleResponseAsync()
@@ -28,36 +33,23 @@ namespace TetrisServer2.Server
             {
                 while (true)
                 {
-                    var buffer = new List<byte>();
-                    var bytesRead = new byte[1];
 
-                    while (true)
-                    {
+                    var response = await ReceiveMessageAsync();
 
-                        var nextByte = await clientSocket.ReceiveAsync(bytesRead, SocketFlags.None);
-
-                        if (nextByte == 0 || bytesRead[0] == '\n') break;
-
-                        buffer.Add(bytesRead[0]);
-
-                    }
-
-                    var response = Encoding.UTF8.GetString(buffer.ToArray());
-
-                    switch (response.Split(' ')[0])
+                    switch (response.Split('-')[0])
                     {
                         case "StartGame":
-                            var fieldSize = response.Split(' ')[1];
+                            var fieldSize = response.Split('-')[1];
                             switch (fieldSize)
                             {
-                                case "s":
-                                    gameManager = new GameManager(server.FieldSizes[FieldSize.SMALL].Rows, server.FieldSizes[FieldSize.SMALL].Columns);
+                                case "small":
+                                    gameManager = new GameManager(FieldSizes.Small);
                                     break;
-                                case "m":
-                                    gameManager = new GameManager(server.FieldSizes[FieldSize.MEDIUM].Rows, server.FieldSizes[FieldSize.MEDIUM].Columns);
+                                case "medium":
+                                    gameManager = new GameManager(FieldSizes.Medium);
                                     break;
-                                case "l":
-                                    gameManager = new GameManager(server.FieldSizes[FieldSize.LARGE].Rows, server.FieldSizes[FieldSize.LARGE].Columns);
+                                case "large":
+                                    gameManager = new GameManager(FieldSizes.Large);
                                     break;
                             }
                             await SendResponseAsync($"GameStarted-{gameManager.Field.Rows}-{gameManager.Field.Columns}");
@@ -66,11 +58,24 @@ namespace TetrisServer2.Server
                         case "NextFigure":
                             await SendResponseAsync(gameManager.CurrentBlock.BlockId.ToString());
                             break;
+                        case "GetRecords":
+
+                            fieldSize = response.Split('-')[1];
+                            var records = await GetRecords(fieldSize);
+                            await SendResponseAsync(records);
+
+                            break;
                         case "GetGrid":
                             StringBuilder stringBuilder = new StringBuilder();
                             if (gameManager.GameOver)
                             {
-                                await SendResponseAsync("GameOver");
+                                 if (await IsRecord())
+                                {
+                                    await SendResponseAsync("GameOver-Record");
+                                    break;
+                                }
+
+                                await SendResponseAsync($"GameOver-NoRecord");
                                 break;
                             }
 
@@ -87,14 +92,29 @@ namespace TetrisServer2.Server
                             stringBuilder.Append(gameManager.Score);
                             await SendResponseAsync(stringBuilder.ToString());
                             break;
+                        case "WriteRecord":
+                            var name = response.Split('-')[1];
+
+                            if (!await WriteRecord(name))
+                            {
+                                await SendResponseAsync("failed");
+                                break;
+                            }
+
+                            await SendResponseAsync("success");
+                            break;
                         case "GetBlock":
                             string positions = "";
+
                             foreach (var position in gameManager.CurrentBlock.BlockTilesPositions())
                             {
                                 positions += position.Row + "-" + position.Column + "-" + position.BlockPosId + "n";
                             }
-                            //positions += gameManager.CurrentBlock.BlockId;
+
                             await SendResponseAsync(positions);
+                            break;
+                        case "GetNextBlock":
+                            await SendResponseAsync(gameManager.BlockPicker.NextBlock.BlockId.ToString());
                             break;
                         case "Left":
                             gameManager.MoveBlockLeft();
@@ -118,9 +138,69 @@ namespace TetrisServer2.Server
             }
         }
 
+        private async Task<bool> WriteRecord(string name)
+        {
+            var result = await DbOperator.SaveHighScore(name, gameManager.FieldSize, gameManager.Score, gameManager.Time);
+
+            return result;
+        }
+
+
+        private async Task<string> GetRecords(string fieldSize)
+        {
+            var highScores = await DbOperator.GetHighScoresAsync(fieldSize);
+
+            string records = null;
+
+            foreach (var highScore in highScores.Take(10).ToList())
+            {
+                var score = BsonSerializer.Deserialize<Score>(highScore);
+                records += score.ToString() + "\r";
+            }
+
+            return records;
+        }
+
+        private async Task<bool> IsRecord()
+        {
+             var highScores = await DbOperator.GetHighScoresAsync(gameManager.FieldSize.Name);
+
+            if (highScores.Count < 10)
+                return true;
+
+            foreach (var highScore in highScores.Take(10).ToList())
+            {
+                var score = BsonSerializer.Deserialize<Score>(highScore);
+                if (gameManager.Score > score.ScoreNum)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
         public async Task SendResponseAsync(string message)
         {
             await clientSocket.SendAsync(Encoding.UTF8.GetBytes(message + '\n'), SocketFlags.None);
+        }
+
+        public async Task<string> ReceiveMessageAsync()
+        {
+            var buffer = new List<byte>();
+            var bytesRead = new byte[1];
+
+            while (true)
+            {
+                var nextByte = await clientSocket.ReceiveAsync(bytesRead, SocketFlags.None);
+
+                if (nextByte == 0 || bytesRead[0] == '\n') break;
+
+                buffer.Add(bytesRead[0]);
+            }
+
+
+            return Encoding.UTF8.GetString(buffer.ToArray());
         }
 
     }

@@ -1,4 +1,4 @@
-﻿using System.Runtime.CompilerServices;
+﻿using System.Diagnostics;
 using TetrisServer2.Game.Blocks;
 
 namespace TetrisServer2.Game
@@ -22,15 +22,21 @@ namespace TetrisServer2.Game
 
         public Field Field { get; set; }
 
-
+        public FieldSize FieldSize { get; }
 
         public BlockPicker BlockPicker { get; set; }
         public bool GameOver { get; set; }
 
-        public GameManager(int rows, int cols)
-        {
-            Field = new Field(rows, cols);
 
+        public TimeSpan Time { get; set; }
+
+        public Stopwatch Stopwatch;
+
+        public GameManager(FieldSize fieldSize)
+        {
+            FieldSize = fieldSize;
+            Field = new Field(fieldSize.Rows, fieldSize.Cols);
+            Stopwatch = new Stopwatch();
             BlockPicker = new BlockPicker();
             CurrentBlock = BlockPicker.GetRandomBlock();
             StartGame();
@@ -41,6 +47,7 @@ namespace TetrisServer2.Game
             while (!GameOver)
             {
                 int delay = Math.Max(minDelay, maxDelay - (Score * delayDecrease));
+                Time = GetElapsedTime();
                 await Task.Delay(delay);
                 MoveBlockDown();
             }
@@ -52,6 +59,8 @@ namespace TetrisServer2.Game
         private async Task StartGame()
         {
             Score = 0;
+            Stopwatch.Start();
+
             await GameLoop();
         }
 
@@ -65,7 +74,7 @@ namespace TetrisServer2.Game
 
             return true;
         }
-        
+
         public void MoveBlockLeft()
         {
             CurrentBlock.Move(0, -1);
@@ -84,7 +93,7 @@ namespace TetrisServer2.Game
 
         private bool IsGameOver()
         {
-            return !(Field.IsRowEmpty(0));
+            return !(Field.IsRowEmpty(0) && Field.IsRowEmpty(1));
         }
 
         private void PlaceBlock()
@@ -97,7 +106,11 @@ namespace TetrisServer2.Game
             Score += Field.ClearFullRows();
 
             if (IsGameOver())
+            {
                 GameOver = true;
+                Stopwatch.Stop();
+            }
+
             else
                 CurrentBlock = BlockPicker.GetAndUpdate();
 
@@ -135,6 +148,12 @@ namespace TetrisServer2.Game
             }
 
             return dropLines;
+        }
+
+        public TimeSpan GetElapsedTime()
+        {
+            Time = Stopwatch.Elapsed;
+            return Time;
         }
 
         public int BlockDropDistance()

@@ -1,6 +1,7 @@
 ﻿using System.Net;
 using System.Net.Sockets;
 using System.Text;
+using TetrisServer2.DataBase;
 using TetrisServer2.Game;
 
 namespace TetrisServer2.Server
@@ -20,8 +21,6 @@ namespace TetrisServer2.Server
 
         private Socket clientSocket;
 
-        public Dictionary<FieldSize, Field> FieldSizes { get; set; }
-
         public Server(string ip, int port)
         {
             this.port = port;
@@ -29,13 +28,6 @@ namespace TetrisServer2.Server
             listener = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
 
             udpClient = new UdpClient();
-
-            FieldSizes = new Dictionary<FieldSize, Field>()
-            {
-                {FieldSize.SMALL, new Field(20, 10)},
-                {FieldSize.MEDIUM, new Field(20, 15)},
-                {FieldSize.LARGE, new Field(20, 20)}
-            };
 
         }
 
@@ -79,14 +71,10 @@ namespace TetrisServer2.Server
                     break;
                 }
             }
-            //clientSocket = listener.Accept();
-            //Console.WriteLine($"Подключился игрок - {clientSocket.RemoteEndPoint}");
         }
 
 
-        
-
-        private async Task ReceiveRequest()
+        private void ReceiveRequest()
         {
 
             var clientEp = new IPEndPoint(IPAddress.Any, 0);
