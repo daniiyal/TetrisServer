@@ -7,7 +7,7 @@ Server server = new Server("127.0.0.1", 333);
 
 try
 {
-    server.startServer();
+    server.StartServer();
     await server.ConnectNewClient();
 }
    
@@ -19,14 +19,3 @@ finally
 {
     server.Stop();
 }
-
-
-//server.();
-
-//server.connectNewClient();
-
-
-//while (true)
-//{
-//    server.HandleResponse();
-//}

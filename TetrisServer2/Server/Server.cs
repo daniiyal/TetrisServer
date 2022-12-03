@@ -8,39 +8,39 @@ namespace TetrisServer2.Server
 {
     public class Server
     {
-        private IPEndPoint ipEndPoint { get; }
+        private IPEndPoint IpEndPoint { get; }
 
-        private Socket listener { get; }
+        private Socket Listener { get; }
 
-        private UdpClient udpClient { get; }
+        private UdpClient UdpClient { get; }
 
 
 
-        private int port { get; }
-        private bool active = false;
+        private int Port { get; }
+        private bool _active = false;
 
         private Socket clientSocket;
 
         public Server(string ip, int port)
         {
-            this.port = port;
-            ipEndPoint = new IPEndPoint(IPAddress.Parse(ip), port);
-            listener = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+            Port = port;
+            IpEndPoint = new IPEndPoint(IPAddress.Parse(ip), port);
+            Listener = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
 
-            udpClient = new UdpClient();
+            UdpClient = new UdpClient();
 
         }
 
-        public void startServer()
+        public void StartServer()
         {
-            if (!active)
+            if (!_active)
             {
-                listener.Bind(ipEndPoint);
-                listener.Listen(port);
+                Listener.Bind(IpEndPoint);
+                Listener.Listen(Port);
 
-                udpClient.Client.Bind(ipEndPoint);
+                UdpClient.Client.Bind(IpEndPoint);
 
-                active = true;
+                _active = true;
                 Console.WriteLine("Сервер запущен. Ожидание подключений...");
 
                 Task.Run(ReceiveRequest);
@@ -56,7 +56,7 @@ namespace TetrisServer2.Server
         {
             while (true)
             {
-                clientSocket = await listener.AcceptAsync();
+                clientSocket = await Listener.AcceptAsync();
                 Client client = new Client(clientSocket, this);
                 Console.WriteLine($"Подключился игрок - {clientSocket.RemoteEndPoint}");
 
@@ -82,12 +82,12 @@ namespace TetrisServer2.Server
 
             while (true)
             {
-                var receiveBUffer = udpClient.Receive(ref clientEp);
+                var receiveBUffer = UdpClient.Receive(ref clientEp);
 
                 if (Encoding.UTF8.GetString(receiveBUffer) == "Want to play")
                 {
                     Console.WriteLine($"received request from {clientEp.Address}");
-                    udpClient.Send(responseData, responseData.Length, clientEp.Address.ToString(), clientEp.Port);
+                    UdpClient.Send(responseData, responseData.Length, clientEp.Address.ToString(), clientEp.Port);
                 };
             }
         }
@@ -95,7 +95,7 @@ namespace TetrisServer2.Server
 
         public void Stop()
         {
-            listener.Shutdown(SocketShutdown.Both);
+            Listener.Shutdown(SocketShutdown.Both);
         }
     }
 }

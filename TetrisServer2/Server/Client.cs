@@ -12,22 +12,18 @@ namespace TetrisServer2.Server
 
         private GameManager gameManager;
 
-
-
         private Socket clientSocket;
-        private Server server;
+
         private DBOperator DbOperator;
 
 
         public Client(Socket clientSocket, Server server)
         {
-
             this.clientSocket = clientSocket;
-            this.server = server;
             DbOperator = new DBOperator();
         }
 
-        public async Task HandleResponseAsync()
+        public async void HandleResponseAsync()
         {
             try
             {
@@ -69,7 +65,7 @@ namespace TetrisServer2.Server
                             StringBuilder stringBuilder = new StringBuilder();
                             if (gameManager.GameOver)
                             {
-                                 if (await IsRecord())
+                                if (await IsRecord())
                                 {
                                     await SendResponseAsync("GameOver-Record");
                                     break;
@@ -89,7 +85,8 @@ namespace TetrisServer2.Server
                                 stringBuilder.Append('n');
                             }
 
-                            stringBuilder.Append(gameManager.Score);
+                            stringBuilder.Append(gameManager.Score+"n");
+                            stringBuilder.Append(gameManager.Time.Minutes + ":" + gameManager.Time.Seconds);
                             await SendResponseAsync(stringBuilder.ToString());
                             break;
                         case "WriteRecord":
@@ -134,17 +131,28 @@ namespace TetrisServer2.Server
             }
             catch (Exception e)
             {
-                throw new Exception(e.Message);
+                Console.WriteLine(e.Message);
+                clientSocket.Shutdown(SocketShutdown.Both);
+                gameManager.GameOver = true;
             }
         }
 
         private async Task<bool> WriteRecord(string name)
         {
-            var result = await DbOperator.SaveHighScore(name, gameManager.FieldSize, gameManager.Score, gameManager.Time);
+            try
+            {
+                var result =
+                    await DbOperator.SaveHighScore(name, gameManager.FieldSize, gameManager.Score, gameManager.Time);
+                return result;
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine(e.Message);
+                return false;
+            }
 
-            return result;
+           
         }
-
 
         private async Task<string> GetRecords(string fieldSize)
         {
@@ -155,7 +163,7 @@ namespace TetrisServer2.Server
             foreach (var highScore in highScores.Take(10).ToList())
             {
                 var score = BsonSerializer.Deserialize<Score>(highScore);
-                records += score.ToString() + "\r";
+                records += score + "\r";
             }
 
             return records;
@@ -163,7 +171,9 @@ namespace TetrisServer2.Server
 
         private async Task<bool> IsRecord()
         {
-             var highScores = await DbOperator.GetHighScoresAsync(gameManager.FieldSize.Name);
+            if(gameManager.Score == 0) return false;
+
+            var highScores = await DbOperator.GetHighScoresAsync(gameManager.FieldSize.Name);
 
             if (highScores.Count < 10)
                 return true;
@@ -182,7 +192,15 @@ namespace TetrisServer2.Server
 
         public async Task SendResponseAsync(string message)
         {
-            await clientSocket.SendAsync(Encoding.UTF8.GetBytes(message + '\n'), SocketFlags.None);
+            try
+            {
+                await clientSocket.SendAsync(Encoding.UTF8.GetBytes(message + '\n'), SocketFlags.None);
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine(e.Message);
+                throw new Exception();
+            }
         }
 
         public async Task<string> ReceiveMessageAsync()
@@ -192,13 +210,21 @@ namespace TetrisServer2.Server
 
             while (true)
             {
-                var nextByte = await clientSocket.ReceiveAsync(bytesRead, SocketFlags.None);
+                try
+                {
+                    var nextByte = await clientSocket.ReceiveAsync(bytesRead, SocketFlags.None);
 
-                if (nextByte == 0 || bytesRead[0] == '\n') break;
+                    if (nextByte == 0 || bytesRead[0] == '\n') break;
 
-                buffer.Add(bytesRead[0]);
+                    buffer.Add(bytesRead[0]);
+                }
+                catch (Exception e)
+                {
+                    Console.WriteLine(e.Message);
+                    throw new SocketException();
+                }
+               
             }
-
 
             return Encoding.UTF8.GetString(buffer.ToArray());
         }
